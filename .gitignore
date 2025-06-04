@@ -134,3 +134,32 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
+# Node modules
+node_modules/
+client/node_modules/
+server/node_modules/
+
+# Build output
+client/build/
+server/build/
+
+# Environment variables
+.env
+client/.env
+server/.env
+
+# Uploaded movies
+server/uploads/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
