@@ -4,7 +4,7 @@
   "description": "Server for browser-based movie sync app",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "set NODE_OPTIONS=--openssl-legacy-provider && react-scripts start"
   },
   "dependencies": {
     "cors": "^2.8.5",

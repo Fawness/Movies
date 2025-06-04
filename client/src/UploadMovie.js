@@ -1,14 +1,13 @@
 import React, { useRef, useState } from 'react';
 
-const SERVER_URL = process.env.REACT_APP_SERVER_URL || 'http://localhost:3001';
+const SERVER_URL = (typeof process !== 'undefined' && process.env && process.env.REACT_APP_SERVER_URL) || 'http://localhost:3001';
 const UPLOAD_URL = SERVER_URL + '/upload';
 
-export default function UploadMovie() {
+export default function UploadMovie({ onUploadSuccess }) {
   const [dragActive, setDragActive] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [message, setMessage] = useState('');
-  const [uploadedFilename, setUploadedFilename] = useState(null);
   const inputRef = useRef();
 
   const handleDrag = (e) => {
@@ -25,58 +24,69 @@ export default function UploadMovie() {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleFile(e.dataTransfer.files[0]);
+    if (e.dataTransfer.files && e.dataTransfer.files.length) {
+      handleFiles(e.dataTransfer.files);
     }
   };
 
   const handleChange = (e) => {
-    if (e.target.files && e.target.files[0]) {
-      handleFile(e.target.files[0]);
+    if (e.target.files && e.target.files.length) {
+      handleFiles(e.target.files);
     }
   };
 
-  const handleFile = (file) => {
+  const handleFiles = (fileList) => {
     setMessage('');
-    setUploadedFilename(null);
-    if (file.type !== 'video/mp4') {
+    const files = Array.from(fileList).filter(file => file.type === 'video/mp4');
+    if (!files.length) {
       setMessage('Only .mp4 files are allowed.');
       return;
     }
-    uploadFile(file);
+    uploadFiles(files);
   };
 
-  const uploadFile = (file) => {
+  const uploadSingleFile = (file, setProgress, setMessage) => {
+    return new Promise((resolve, reject) => {
+      const formData = new FormData();
+      formData.append('movie', file);
+      const xhr = new window.XMLHttpRequest();
+      xhr.open('POST', UPLOAD_URL);
+      xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable) {
+          setProgress(Math.round((e.loaded * 100) / e.total));
+        }
+      });
+      xhr.onload = () => {
+        if (xhr.status === 200) {
+          resolve();
+        } else {
+          setMessage('Upload failed for ' + file.name);
+          reject();
+        }
+      };
+      xhr.onerror = () => {
+        setMessage('Upload failed for ' + file.name);
+        reject();
+      };
+      xhr.send(formData);
+    });
+  };
+
+  const uploadFiles = async (files) => {
     setUploading(true);
     setProgress(0);
-    const formData = new FormData();
-    formData.append('movie', file);
-    const xhr = new window.XMLHttpRequest();
-    xhr.open('POST', UPLOAD_URL);
-    xhr.upload.addEventListener('progress', (e) => {
-      if (e.lengthComputable) {
-        setProgress(Math.round((e.loaded * 100) / e.total));
-      }
-    });
-    xhr.onload = () => {
-      setUploading(false);
-      if (xhr.status === 200) {
-        try {
-          const res = JSON.parse(xhr.responseText);
-          setMessage('Upload successful!');
-          setUploadedFilename(res.filename);
-        } catch {
-          setMessage('Upload successful, but could not parse response.');
-        }
-      } else {
-        setMessage('Upload failed.');
-      }
-    };
-    xhr.onerror = () => {
-      setUploading(false);
-      setMessage('Upload failed.');
-    };
-    xhr.send(formData);
+    let uploadedCount = 0;
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      try {
+        await uploadSingleFile(file, setProgress, setMessage);
+        uploadedCount++;
+      } catch {}
+    }
+    setUploading(false);
+    setProgress(0);
+    setMessage(uploadedCount ? `Uploaded ${uploadedCount} file(s) successfully!` : 'No files uploaded.');
+    if (uploadedCount && onUploadSuccess) onUploadSuccess();
   };
 
   return (
@@ -104,14 +114,15 @@ export default function UploadMovie() {
           ref={inputRef}
           type="file"
           accept="video/mp4"
+          multiple
           style={{ display: 'none' }}
           onChange={handleChange}
         />
         <div style={{ fontSize: 22, fontWeight: 500, marginBottom: 8 }}>
-          Drag & Drop your .mp4 movie here
+          Drag & Drop your .mp4 movie(s) here
         </div>
         <div style={{ fontSize: 16, color: '#aaa' }}>
-          or click to select a file
+          or click to select file(s)
         </div>
       </div>
       {uploading && (
@@ -123,17 +134,7 @@ export default function UploadMovie() {
         </div>
       )}
       {message && (
-        <div style={{ color: message.includes('success') ? '#0f0' : '#f55', textAlign: 'center', marginTop: 8 }}>{message}</div>
-      )}
-      {uploadedFilename && (
-        <div style={{ marginTop: 32, textAlign: 'center' }}>
-          <h2 style={{ marginBottom: 12 }}>Preview Uploaded Movie</h2>
-          <video
-            src={`${SERVER_URL}/movie/${uploadedFilename}`}
-            controls
-            style={{ width: 400, maxWidth: '90vw', borderRadius: 12, background: '#000' }}
-          />
-        </div>
+        <div style={{ color: message.includes('success') || message.includes('Uploaded') ? '#0f0' : '#f55', textAlign: 'center', marginTop: 8 }}>{message}</div>
       )}
     </div>
   );
