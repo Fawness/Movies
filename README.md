@@ -17,7 +17,7 @@ A browser-based app for synchronizing movie playback with friends, featuring rea
 
 ### 1. Clone the repository
 ```
-git clone <your-repo-url>
+git clone https://github.com/Fawness/Movies
 cd <your-repo-folder>
 ```
 
